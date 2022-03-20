@@ -8,7 +8,8 @@
         display: inline-block;
         margin: 15px;
     }
-        #total-amount-num {
+        #total-amount-num,
+        #date {
             display: inline-block;
         }
 
@@ -25,8 +26,11 @@
     <script src="./canvasjs.min.js"> </script>
     <script src="./jquery-3.1.0.min.js"></script>
     <script>
-
         window.onload = function () {
+            var date = new Date();
+            var currentDate = date.toISOString().slice(0,10);
+            var aa = document.getElementById('date');
+            aa.innerHTML = currentDate;
 
             var chartData = [];
             var columnDataPoints = [];
@@ -180,6 +184,7 @@
 
 <body>
     总数： <div id="total-amount"></div>
+    日期： <div id="date"></div>
     <div id="chartContainer" style="height: 370px; max-width: 920px; margin: 0px auto;"></div>
     <div id="region-select"">显示：
     <ul id=" select-container">

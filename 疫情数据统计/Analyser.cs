@@ -132,6 +132,32 @@ namespace statistic
             File.WriteAllText(path.Replace(format, ""), newContents);
             File.Delete(path);
         }
+
+        public void FormatContent2(string path)
+        {
+            var format = "format-2";
+            if (!path.Contains(format)) return;
+
+            string newContents = "";
+
+            var lines = File.ReadAllLines(path);
+            var prefix = "";
+            foreach (var line in lines)
+            {
+                var clearLine = line.Trim();
+                if (string.Empty == clearLine) continue;
+                if (xzq.Contains(clearLine))
+                {
+                    prefix = clearLine;
+                    continue;
+                }
+                if (clearLine.Contains("落实终末消毒")) prefix = "";
+                newContents += prefix + line + "\n";
+            }
+
+            File.WriteAllText(path.Replace(format, ""), newContents);
+            File.Delete(path);
+        }
     }
 
     internal class Data

@@ -1,0 +1,148 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <title>Shanghai 2022 Covid19</title>
+    <style type="text/css">
+        html {
+            height: 100%
+        }
+
+        body {
+            height: 100%;
+            margin: 0px;
+            padding: 0px
+        }
+
+        #container {
+            height: 600px;
+            width: 70%;
+            margin: auto;
+        }
+
+        #total-amount {
+            display: inline-block;
+            margin: 15px;
+        }
+
+        #total-amount-num,
+        #date {
+            display: inline-block;
+        }
+
+        #region-select {
+            margin: 0 auto;
+            display: table;
+        }
+
+        ul {
+            padding: 0;
+            display: inline;
+        }
+
+            ul li,
+            ul li p {
+                display: inline-block;
+            }
+
+        .title {
+            height: 35px;
+            text-align: center;
+            margin-top: 30px;
+        }
+    </style>
+
+    <script type="text/javascript" src="https://api.map.baidu.com/getscript?v=3.0&ak=GRd83ONGj9FEDdQnp49tocaDasu3pz1e"></script>
+    <script src="js/canvasjs.min.js"></script>
+    <script src="js/jquery-3.1.0.min.js"></script>
+</head>
+
+<body>
+    总数： <div id="total-amount"></div>
+    日期： <div id="date"></div>
+    <div id="chartContainer" style="height: 370px; max-width: 920px; margin: 0px auto;"></div>
+    <div id="region-select">
+        显示：
+        <ul id=" select-container">
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="all" checked>
+                <p>所有</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="徐汇区">
+                <p>徐汇区</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="闵行区">
+                <p>闵行区</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="浦东新区">
+                <p>浦东新区</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="黄埔区">
+                <p>黄埔区</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="静安区">
+                <p>静安区</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="长宁区">
+                <p>长宁区</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="虹口区">
+                <p>虹口区</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="杨浦区">
+                <p>杨浦区</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="普陀区">
+                <p>普陀区</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="宝山区">
+                <p>宝山区</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="嘉定区">
+                <p>嘉定区</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="金山区">
+                <p>金山区</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="松江区">
+                <p>松江区</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="青浦区">
+                <p>青浦区</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="奉贤区">
+                <p>奉贤区</p>
+            </li>
+            <li>
+                <input class="reg-chxbox" type="checkbox" name="崇明区">
+                <p>崇明区</p>
+            </li>
+        </ul>
+    </div>
+    <div class="title">Covid19 确诊地址</div>
+    <div id="container"></div>
+    <div class="title" id="bottom">More comes here</div>
+    <script src="js/site.js" asp-append-version="true"></script>
+    <script type="text/javascript">
+        onLoad();
+    </script>
+</body>
+</html>

@@ -1,3 +1,8 @@
 疫情数据统计/bin/
 疫情数据统计/obj/
 疫情数据统计/.vs/
+bin/
+.vs/Covid19DataPipe/v17/.suo
+Covid19DataPipe.csproj.user
+obj/
+publish/

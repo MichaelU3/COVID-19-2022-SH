@@ -17,6 +17,7 @@ app.UseStaticFiles();
 app.MapGet("/data", () =>
 {
     var generator = new Generator();
+    //WebContentFormattor.Format1("testformat-1.txt");
     return generator.Analyse();
 });
 
@@ -27,6 +28,7 @@ app.MapGet("/edata", () =>
 });
 
 app.Run();
+
 
 internal class Generator
 {
@@ -49,19 +51,26 @@ internal class Generator
     internal static string fxq = @"奉贤区";
     internal static string cmq = @"崇明区";
 
-    internal static string TtPartten = @"\u65b0\u589e\u672c\u571f\u65b0\u51a0\u80ba\u708e\u786e\u8bca\u75c5\u4f8b(\d*)\u4f8b\u548c\u65e0\u75c7\u72b6\u611f\u67d3\u8005(\d*)\u4f8b";
-    internal static string TtPartten2 = @"\u65b0\u589e(\d*)\u4f8b\u65b0\u51a0\u80ba\u708e\u672c\u571f\u786e\u8bca\u75c5\u4f8b\u548c(\d*)\u4f8b\u672c\u571f\u65e0\u75c7\u72b6\u611f\u67d3\u8005";
+    internal static string TtPartten = @"新增(本土)?((\d*)例)?新冠肺炎(本土)?确诊病例((\d*)例)?和((\d*)例本土)?无症状感染者((\d*)例)?";
+    internal static string TtPart1Partten = @"(无?)新增本土新冠肺炎确诊病例((\d*)例)?";
+    internal static string TtPart2Partten = @"新增本土无症状感染者((\d*)例)?";
+    // internal static string regionPartten = @"，((\w*)区)((无?)新增|新增(\d*)例)本土(新冠肺炎)?确诊病例(、|，)(新增)?(\d*)例(本土)?无症状感染者";
+    internal static string regionPartten = @"，{0}((无?)新增|新增(\d*)例)本土(新冠肺炎)?确诊病例(、|，)(新增)?(\d*)例(本土)?无症状感染者";
 
     public Result Analyse()
     {
         var root = GetDataFolder(new DirectoryInfo(Directory.GetCurrentDirectory()));
         DirectoryInfo directoryInfo = new DirectoryInfo(root);
-        List<Data> dataList = new List<Data>();
-        List<AmountOfDay> dailyAmount = new List<AmountOfDay>();
         foreach (FileInfo file in directoryInfo.GetFiles())
         {
-            FormatContent1(file.FullName);
+            WebContentFormattor.Format0(file.FullName);
+            WebContentFormattor.Format1(file.FullName);
+            WebContentFormattor.Format2(file.FullName);
         }
+
+        List<Data> dataList = new List<Data>();
+        List<AmountOfDay> dailyAmount = new List<AmountOfDay>();
+
         foreach (FileInfo file in directoryInfo.GetFiles())
         {
             Data data = new Data() { Day = file.Name.Replace(file.Extension, "").Replace('-', '.') };
@@ -69,7 +78,7 @@ internal class Generator
             string contents = File.ReadAllText(file.FullName);
             var total = GetTotal(contents);
             dailyAmount.Add(new AmountOfDay() { Day = data.Day, Amount = total });
-            data.Address = GetAddress(contents);
+            data.Region = GetAddress(contents);
             dataList.Add(data);
         }
 
@@ -92,48 +101,76 @@ internal class Generator
 
     public int GetTotal(string contents)
     {
+        string qzM = "0", wzM = "0";
         Match m = Regex.Match(contents, TtPartten);
         if (m.Success)
         {
-            return Convert.ToInt32(m.Groups[1].Value) + Convert.ToInt32(m.Groups[2].Value);
+            qzM = !string.IsNullOrEmpty(m.Groups[3].Value) ? m.Groups[3].Value : m.Groups[6].Value;
+            wzM = !string.IsNullOrEmpty(m.Groups[8].Value) ? m.Groups[8].Value : m.Groups[10].Value;
+            return Convert.ToInt32(qzM) + Convert.ToInt32(wzM);
         }
-        m = Regex.Match(contents, TtPartten2);
+        m = Regex.Match(contents, TtPart1Partten);
         if (m.Success)
         {
-            return Convert.ToInt32(m.Groups[1].Value) + Convert.ToInt32(m.Groups[2].Value);
+            qzM = !string.IsNullOrEmpty(m.Groups[3].Value) ? m.Groups[3].Value : "0";
         }
-
-        return 0;
+        m = Regex.Match(contents, TtPart2Partten);
+        if (m.Success)
+        {
+            wzM = !string.IsNullOrEmpty(m.Groups[2].Value) ? m.Groups[2].Value : "0"; 
+        }
+        return Convert.ToInt32(qzM) + Convert.ToInt32(wzM);
     }
 
-    private List<Address> GetAddress(string contents)
+    private List<Region> GetAddress(string contents)
     {
-        List<Address> result = new List<Address>();
+        List<Region> result = new List<Region>();
         foreach (string q in xzq)
         {
-            Address address = new Address() { Region = q };
+            Region address = new Region() { Name = q };
             address.Addresses = GetAddressIn(contents, q);
+            var amt = GetRegionAmount(contents, q);
+            address.Amount = amt == 0 ? address.Addresses.Count : amt;
             result.Add(address);
         }
         return result;
     }
 
-    private List<string> GetAddressIn(string contents, string q)
+    private int GetRegionAmount(string contents, string q)
+    {
+        string partten = string.Format(regionPartten, q);
+        Match m = Regex.Match(contents, partten);
+        if (m.Success)
+        {
+            var qzM = !string.IsNullOrEmpty(m.Groups[3].Value) ? m.Groups[3].Value : "0";
+            var wzM = !string.IsNullOrEmpty(m.Groups[7].Value) ? m.Groups[7].Value : "0";
+            return Convert.ToInt32(qzM) + Convert.ToInt32(wzM);
+        }
+        return 0;
+    }
+
+    public List<string> GetAddressIn(string contents, string q)
     {
         List<string> result = new List<string>();
-        string uniCode = q.String2Unicode();
-        var partten = $"{uniCode}[\\u4e00-\\u9fa5\\d]+";
+        var partten = $"\\n({q}(\\w*))(，|、|。)";
         Match m = Regex.Match(contents, partten);
         var loopdog = 0;
         while (m.Success && loopdog++ < 10000)
         {
-            result.Add(m.Value);
+            result.Add(m.Groups[1].Value);
             m = m.NextMatch();
         }
         return result;
     }
 
-    public void FormatContent1(string path)
+    public static void testRegx()
+    {
+    }
+}
+
+internal static class WebContentFormattor
+{
+    public static void Format1(string path)
     {
         var format = "format-1";
         if (!path.Contains(format)) return;
@@ -146,20 +183,62 @@ internal class Generator
         {
             var clearLine = line.Trim();
             if (string.Empty == clearLine) continue;
-            if (xzq.Contains(clearLine))
+            if (Generator.xzq.Contains(clearLine))
             {
                 prefix = clearLine;
                 continue;
             }
-            if (clearLine.Contains("落实终末消毒")) prefix = "";
-            newContents += prefix + line + "\n";
+            if (line.StartsWith("2022"))
+            {
+                newContents += line + "\n";
+                continue;
+            }
+            if (clearLine.Contains("落实终末消毒"))
+            {
+                prefix = "";
+                continue;
+            }
+            var newLine = prefix + clearLine;
+            if (newLine.Contains("、"))
+            {
+                var adds = newLine.Split("、") ;
+                newLine = adds[0] + "，\n";
+                for (int i = 1; i < adds.Length; i++)
+                {
+                    if (!string.IsNullOrEmpty(adds[i].Trim())) newLine += $"{prefix}" + adds[i]+"，\n";
+                }
+            }
+            newLine = newLine.Replace("（住宅）", "");
+            newContents += newLine + "，\n";
         }
 
         File.WriteAllText(path.Replace(format, ""), newContents);
         File.Delete(path);
     }
 
-    public void FormatContent2(string path)
+    public static void Format0(string path)
+    {
+        var format = "format-0";
+        if (!path.Contains(format)) return;
+
+        string newContents = "";
+
+        var lines = File.ReadAllLines(path);
+        foreach (var line in lines)
+        {
+            var clearLine = line.Trim();
+            if (string.Empty == clearLine) continue;
+            var newLine = clearLine.Replace("居住于", "\n");
+            newLine = newLine.Replace("居住地为", "\n");
+            // newContents += newLine.Replace("无症状", "\n无症状");
+            newContents += newLine;
+        }
+
+        File.WriteAllText(path.Replace(format, ""), newContents);
+        File.Delete(path);
+    }
+
+    public static void Format2(string path)
     {
         var format = "format-2";
         if (!path.Contains(format)) return;
@@ -167,18 +246,14 @@ internal class Generator
         string newContents = "";
 
         var lines = File.ReadAllLines(path);
-        var prefix = "";
         foreach (var line in lines)
         {
             var clearLine = line.Trim();
             if (string.Empty == clearLine) continue;
-            if (xzq.Contains(clearLine))
-            {
-                prefix = clearLine;
-                continue;
-            }
-            if (clearLine.Contains("落实终末消毒")) prefix = "";
-            newContents += prefix + line + "\n";
+            var newLine = clearLine.Replace("居住于", "\n");
+            newLine = newLine.Replace("居住地为", "\n");
+            // newContents += newLine.Replace("无症状", "\n无症状");
+            newContents += newLine;
         }
 
         File.WriteAllText(path.Replace(format, ""), newContents);
@@ -189,13 +264,14 @@ internal class Generator
 internal class Data
 {
     public string Day { get; set; }
-    public List<Address> Address { get; set; }
+    public List<Region> Region { get; set; }
 }
 
-internal class Address
+internal class Region
 {
-    public string Region { get; set; }
+    public string Name { get; set; }
     public List<string> Addresses { get; set; }
+    public int Amount { get; set; }
 }
 
 internal class AmountOfDay

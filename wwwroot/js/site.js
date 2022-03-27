@@ -80,14 +80,14 @@ function handleChartsData(data) {
         amount += value.amount;
     });
     $.each(data.details, (key, value) => {
-        var address = value.address;
-        value.address.forEach(rgnAddr => {
-            var regionData = lineDataPoints.find(lp => lp.name === rgnAddr.region);
+        var address = value.region;
+        value.region.forEach(rgnAddr => {
+            var regionData = lineDataPoints.find(lp => lp.name === rgnAddr.name);
             if (!regionData) {
-                regionData = generateChartOption(rgnAddr.region);
+                regionData = generateChartOption(rgnAddr.name);
                 lineDataPoints.push(regionData);
             }
-            regionData.dataPoints.push({ label: value.day, y: rgnAddr.addresses.length });
+            regionData.dataPoints.push({ label: value.day, y: rgnAddr.amount });
         });
     })
     chartData.push(overallAmount);
@@ -218,8 +218,8 @@ function getCurrentPosition() {
 
 function handleMapData(data) {
     $.each(data.details, (key, value) => {
-        var address = value.address;
-        value.address.forEach(rgnAddr => {
+        var address = value.region;
+        value.region.forEach(rgnAddr => {
             adds = adds.concat(rgnAddr.addresses);
             bdGEO(rgnAddr.addresses);
         });

@@ -16,7 +16,7 @@ function onLoad() {
         $(this).on("click", function (e) {
             var name = $element.name;
             console.log(name);
-            if (index == 0) {
+            if (index === 0) {
                 udpateAll();
             } else {
                 if (allCheckbox[0].checked) {
@@ -27,7 +27,7 @@ function onLoad() {
             }
             function udpateAll() {
                 allCheckbox.each(function (aindex, $all) {
-                    if (aindex == 0) return;
+                    if (aindex === 0) return;
                     updateRag(aindex, $all, allCheckbox[0].checked);
                     $all.checked = false;
                 });
@@ -65,7 +65,7 @@ function generateChartOption(name) {
 }
 
 function getData() {
-    $.getJSON("./edata?v=" + Math.random, handleJSONData, 1);
+    $.getJSON("./data?v=" + Math.random, handleJSONData, 1);
 }
 
 function handleJSONData(data) {
@@ -82,7 +82,7 @@ function handleChartsData(data) {
     $.each(data.details, (key, value) => {
         var address = value.address;
         value.address.forEach(rgnAddr => {
-            var regionData = lineDataPoints.find(lp => lp.name == rgnAddr.region);
+            var regionData = lineDataPoints.find(lp => lp.name === rgnAddr.region);
             if (!regionData) {
                 regionData = generateChartOption(rgnAddr.region);
                 lineDataPoints.push(regionData);

@@ -17,7 +17,7 @@
             padding: 0px
         }
 
-        #container {
+        #container{
             height: 600px;
             width: 70%;
             margin: auto;
@@ -53,6 +53,17 @@
             text-align: center;
             margin-top: 30px;
         }
+        #region-chart-replay {
+            display: inline-block;
+        }
+        #replay-btn {
+            height: 30px;
+            width: 130px;
+            background-color: #0070B8;
+            text-align: center;
+            line-height: 30px;
+            color: white;
+        }
     </style>
 
     <script type="text/javascript" src="https://api.map.baidu.com/getscript?v=3.0&ak=GRd83ONGj9FEDdQnp49tocaDasu3pz1e"></script>
@@ -64,7 +75,14 @@
     总数： <div id="total-amount"></div>
     日期： <div id="date"></div>
     <div id="chartContainer" style="height: 370px; max-width: 920px; margin: 0px auto;"></div>
-    <div id="region-select">
+    <div>
+        <div id="regionChartsContainer" style="height: 500px; max-width: 920px; margin: 0px auto;"></div>
+        <div id="region-chart-replay">
+            <div id="replay-btn">Replay</div>
+        </div>
+    </div>
+    
+    <div id="region-select" style="display: none">
         显示：
         <ul id=" select-container">
             <li>

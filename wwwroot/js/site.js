@@ -70,6 +70,7 @@ function getData() {
 
 function handleJSONData(data) {
     handleChartsData(data);
+    regionIncreaseChart(data);
     $("#total-amount").append("<div id=\"total-amount-num\">" + amount + "</div>");
     handleMapData(data);
 }
@@ -79,20 +80,8 @@ function handleChartsData(data) {
         columnDataPoints.push({ y: value.amount, label: value.day, indexLabel: value.amount.toString() });
         amount += value.amount;
     });
-    $.each(data.details, (key, value) => {
-        var address = value.region;
-        value.region.forEach(rgnAddr => {
-            var regionData = lineDataPoints.find(lp => lp.name === rgnAddr.name);
-            if (!regionData) {
-                regionData = generateChartOption(rgnAddr.name);
-                lineDataPoints.push(regionData);
-            }
-            regionData.dataPoints.push({ label: value.day, y: rgnAddr.amount });
-        });
-    })
     chartData.push(overallAmount);
-    chartData = chartData.concat(lineDataPoints);
-
+    
     var lineColor = '';
     var chart = new CanvasJS.Chart("chartContainer", {
         animationEnabled: true,
@@ -108,38 +97,138 @@ function handleChartsData(data) {
             gridColor: "navy",
             tickLength: 10
         },
-        axisY2: {
-            title: "",
-            tickLength: 10
-        },
-        toolTip: {
-            shared: true,
-            contentFormatter: function (e) {
-                var content = " ";
-                for (var i = 0; i < e.entries.length; i++) {
-                    content += e.entries[i].dataSeries.name + " " + "<strong>" + e.entries[i].dataPoint.y + "</strong>";
-                    content += "<br/>";
-                }
-                return content;
-            }
-        },
-        legend: {
-            cursor: "pointer",
-            itemmouseover: function (e) {
-                e.dataSeries.lineThickness = 15;
-                lineColor = e.dataSeries.lineColor;
-                e.dataSeries.lineColor = "white";
-                chart.render();
-            },
-            itemmouseout: function (e) {
-                e.dataSeries.lineThickness = 2;
-                e.dataSeries.lineColor = lineColor;
-                chart.render();
-            }
-        },
+        // axisY2: {
+        //     title: "",
+        //     tickLength: 10
+        // },
+        // toolTip: {
+        //     shared: true,
+        //     contentFormatter: function (e) {
+        //         var content = " ";
+        //         for (var i = 0; i < e.entries.length; i++) {
+        //             content += e.entries[i].dataSeries.name + " " + "<strong>" + e.entries[i].dataPoint.y + "</strong>";
+        //             content += "<br/>";
+        //         }
+        //         return content;
+        //     }
+        // },
+        // legend: {
+        //     cursor: "pointer",
+        //     itemmouseover: function (e) {
+        //         e.dataSeries.lineThickness = 15;
+        //         lineColor = e.dataSeries.lineColor;
+        //         e.dataSeries.lineColor = "white";
+        //         chart.render();
+        //     },
+        //     itemmouseout: function (e) {
+        //         e.dataSeries.lineThickness = 2;
+        //         e.dataSeries.lineColor = lineColor;
+        //         chart.render();
+        //     }
+        // },
         data: chartData
     });
     chart.render();
+}
+
+CanvasJS.addColorSet("regionColors",
+    [//colorSet Array
+    "#9966CC",
+    "#FF033E",
+    "#5D8AA8",
+    "#3B7A57",
+    "#FFBF00",
+    "#FF7E00",
+    "#A4C639",
+    "#915C83",
+    "#CD9575",
+    "#89CFF0",
+    "#E0218A",
+    "#FE6F5E",
+    "#0D98BA",
+    "#CC5500",
+    "#00BFFF",
+    "#007BA7",
+    "#EC3B83",
+]);
+
+var regionColors = ["#9966CC","#FF033E","#5D8AA8","#3B7A57","#FFBF00","#FF7E00","#A4C639","#915C83","#CD9575","#89CFF0","#E0218A","#FE6F5E","#0D98BA","#CC5500","#00BFFF","#007BA7","#EC3B83"];
+var regionNames = ["徐汇区", "闵行区", "浦东新区", "黄浦区", "静安区", "长宁区", "虹口区", "杨浦区", "普陀区", "宝山区", "嘉定区", "金山区", "松江区", "青浦区", "奉贤区", "崇明区" ];
+
+var regionData = [];
+function regionIncreaseChart(data){
+    $.each(data.details, (key, value) => {
+        var address = value.region;
+        var regionAmount = [];
+        value.region.forEach(rgnAddr => {
+            regionAmount.push({
+                label: rgnAddr.name,
+                color: regionColors[regionNames.indexOf(rgnAddr.name)],
+                y: rgnAddr.amount,
+                //x: regionNames.indexOf(rgnAddr.name)
+            })
+        });
+        regionAmount.sort((a,b) => a.y - b.y);
+        regionData.push(regionAmount);
+    })
+    var datapoints = regionData[regionData.length-1];
+    var barchart = new CanvasJS.Chart("regionChartsContainer",
+    {
+      //colorSet: "regionColors",
+      title:{
+        text: "Region Increase"
+      },
+      axisX:{
+        //title: "region",
+        interval: 1,
+        gridThickness: 0,
+        tickLength: 0,
+        lineThickness: 0,
+        labelFormatter: function(){
+        return " ";
+        }
+     },
+     axisY: {
+        gridThickness: 0
+      },
+      animationEnabled: true,
+      data: [
+        {
+            type: "bar",
+            indexLabel: "{label} : {y}",
+            indexLabelPlacement: "outside",  
+            indexLabelOrientation: "horizontal", // "horizontal", "vertical"
+            indexLabelTextAlign: "right", //"left", "right"
+            indexLabelFontColor: "black",
+            dataPoints: datapoints
+        }
+      ]
+    });
+
+    barchart.render();
+    var index = 0;
+    function updateChart(){
+        if (index >= regionData.length) index = 0;
+        barchart.options.data[0].dataPoints = regionData[index++];
+        barchart.render();		
+    }
+    setInterval(function(){updateChart()}, 500);
+
+    $('#replay-btn').on('click', (event) => {
+
+    })
+
+    function startDynamicChart(){
+
+    }
+
+    function pauseChart(){
+
+    }
+
+    function stopChart(){
+
+    }
 }
 
 function updateRag(index, $element, visible) {

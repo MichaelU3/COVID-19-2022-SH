@@ -27,6 +27,12 @@ app.MapGet("/edata", () =>
     return JsonConvert.SerializeObject(data, Formatting.Indented);
 });
 
+app.MapPost("/data", (List<AddressGeo> data) =>
+{
+    //var data = JsonConvert.DeserializeObject<List<Geo>>(strData);
+    DataJSONContentHandler.UpdateGeo(data);
+});
+
 app.Run();
 
 
@@ -59,45 +65,35 @@ internal class Generator
 
     public Result Analyse()
     {
-        var root = GetDataFolder(new DirectoryInfo(Directory.GetCurrentDirectory()));
-        DirectoryInfo directoryInfo = new DirectoryInfo(root);
-        foreach (FileInfo file in directoryInfo.GetFiles())
-        {
-            WebContentFormattor.Format0(file.FullName);
-            WebContentFormattor.Format1(file.FullName);
-            WebContentFormattor.Format2(file.FullName);
-        }
+        var root = SourceDataHandler.GetDataFolder(new DirectoryInfo(Directory.GetCurrentDirectory()));
+        SourceDataHandler.FormatContent(root);
 
-        List<Data> dataList = new List<Data>();
-        List<AmountOfDay> dailyAmount = new List<AmountOfDay>();
+        if (string.IsNullOrEmpty(root)) return new Result();
+        DirectoryInfo directoryInfo = new DirectoryInfo(root);
+        var result = DataJSONContentHandler.ReadDataJson();
 
         foreach (FileInfo file in directoryInfo.GetFiles())
         {
             Data data = new Data() { Day = file.Name.Replace(file.Extension, "").Replace('-', '.') };
+            if (result.Amounts.Any(a => a.Day.Equals(data.Day))) continue;
 
             string contents = File.ReadAllText(file.FullName);
             var total = GetTotal(contents);
-            dailyAmount.Add(new AmountOfDay() { Day = data.Day, Amount = total });
+            result.Amounts.Add(new AmountOfDay() { Day = data.Day, Amount = total });
             data.Region = GetAddress(contents);
-            dataList.Add(data);
+            result.Details.Add(data);
         }
 
-        dataList.Sort((a, b) => Convert.ToDouble(a.Day.Replace(".", "")) > Convert.ToDouble(b.Day.Replace(".", "")) ? 1 : -1);
+        result.Details.Sort((a, b) => Convert.ToDouble(a.Day.Replace(".", "")) > Convert.ToDouble(b.Day.Replace(".", "")) ? 1 : -1);
 
         Dictionary<string, List<AmountOfDay>> increasment = new Dictionary<string, List<AmountOfDay>>();
 
-        Result result = new Result() { Details = dataList, Amounts = dailyAmount };
-        var resultStr = JsonConvert.SerializeObject(result);
-        File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), "data.json"), resultStr);
+        DataJSONContentHandler.CreateDataJson(result);
+
         return result;
     }
 
-    private string GetDataFolder(DirectoryInfo currentDir)
-    {
-        var subDirs = currentDir.GetDirectories();
-        if (subDirs.ToList().Any(d => d.Name.ToLower() == "data")) return Path.Combine(currentDir.FullName, "data");
-        return GetDataFolder(currentDir.Parent);
-    }
+
 
     public int GetTotal(string contents)
     {
@@ -149,22 +145,111 @@ internal class Generator
         return 0;
     }
 
-    public List<string> GetAddressIn(string contents, string q)
+    public List<AddressGeo> GetAddressIn(string contents, string q)
     {
-        List<string> result = new List<string>();
+        List<AddressGeo> result = new List<AddressGeo>();
         var partten = $"\\n({q}(\\w*))(£¬|¡¢|¡£)";
         Match m = Regex.Match(contents, partten);
         var loopdog = 0;
         while (m.Success && loopdog++ < 10000)
         {
-            result.Add(m.Groups[1].Value);
+            var adds = m.Groups[1].Value;
+            if (!result.Any(r => r.Address.Equals(adds))) result.Add(new AddressGeo() { Address = adds });
             m = m.NextMatch();
         }
         return result;
     }
 
+    public AddressGeo CreateAddress(string adds)
+    {
+        return new AddressGeo()
+        {
+            Address = adds,
+            Geo = new Geo(),
+        };
+    }
+
     public static void testRegx()
     {
+    }
+}
+
+internal static class SourceDataHandler
+{
+    public static string GetDataFolder(DirectoryInfo? currentDir)
+    {
+        if (currentDir == null) return string.Empty;
+        var subDirs = currentDir.GetDirectories();
+        if (subDirs.ToList().Any(d => d.Name.ToLower() == "data")) return Path.Combine(currentDir.FullName, "data");
+        return GetDataFolder(currentDir.Parent);
+    }
+
+    public static void FormatContent(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return;
+        var directory = new DirectoryInfo(path);
+        foreach (FileInfo file in directory.GetFiles())
+        {
+            WebContentFormattor.Format0(file.FullName);
+            WebContentFormattor.Format1(file.FullName);
+            WebContentFormattor.Format2(file.FullName);
+        }
+    }
+}
+
+internal static class DataJSONContentHandler
+{
+    private static readonly string dataJson = "data.json";
+    public static void UpdateGeo(List<AddressGeo>? adds)
+    {
+        if (adds == null || adds.Count == 0) return;
+        string errors = "";
+        var source = ReadDataJson();
+        var len = source.Details.Count;
+        adds.ForEach(x =>
+        {
+            for (int i = 0; i < len; i++)
+            {
+                var updated = false;
+                var region = source.Details[i].Region;
+                for (int j = 0; j < region.Count; j++)
+                {
+                    if (!x.Address.Contains(region[j].Name)) continue;
+                    var klen = region[j].Addresses.Count;
+                    for (int k = 0; k < klen; k++)
+                    {
+                        var sAdd = region[j].Addresses[k];
+                        if (sAdd.Address != x.Address) continue;
+                        if (!sAdd.Equals(x)) errors += $"difference: org: {sAdd}, new: {x} \r\n";
+                        region[j].Addresses.RemoveAt(k);
+                        region[j].Addresses.Add(new AddressGeo(x.Address, x.Geo));
+                        updated = true;
+                        // break;
+                    }
+                    break;
+                }
+                //if (updated) break;
+            }
+        });
+
+        CreateDataJson(source);
+
+        File.Delete("errors.txt");
+        File.WriteAllText("errors.txt", errors);
+    }
+
+    public static Result ReadDataJson()
+    {
+        var content = File.ReadAllText(dataJson);
+        if (string.IsNullOrEmpty(content)) return new Result();
+        else return JsonConvert.DeserializeObject<Result>(content);
+    }
+
+    public static void CreateDataJson(Result result)
+    {
+        if(File.Exists(dataJson)) File.Delete(dataJson);
+        var content = JsonConvert.SerializeObject(result);
+        File.WriteAllText(dataJson, content);
     }
 }
 
@@ -270,9 +355,13 @@ internal class Data
 internal class Region
 {
     public string Name { get; set; }
-    public List<string> Addresses { get; set; }
+    public List<AddressGeo> Addresses { get; set; }
     public int Amount { get; set; }
 }
+
+internal record struct AddressGeo(string Address, Geo? Geo );
+
+internal record struct Geo (double Lng, double Lat);
 
 internal class AmountOfDay
 {

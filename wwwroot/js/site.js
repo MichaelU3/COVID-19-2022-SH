@@ -1,8 +1,4 @@
 ﻿
-function test() {
-    alert("hello world");
-}
-
 function onLoad() {
     var date = new Date();
     var currentDate = date.toISOString().slice(0, 10);
@@ -37,6 +33,11 @@ function onLoad() {
     });
 }
 
+if(window.Worker){
+    console.log("Support worker");
+}
+var worker = new Worker('js/worker.js');
+
 var chartData = [];
 var columnDataPoints = [];
 var lineDataPoints = [];
@@ -67,6 +68,23 @@ function generateChartOption(name) {
 function getData() {
     $.getJSON("./data?v=" + Math.random, handleJSONData, 1);
 }
+
+//save geo data in service
+function saveGeoData(jsonData){
+    $.ajax({
+        type: 'POST',
+        url: './data',
+        data: JSON.stringify(jsonData),
+        dataType: 'json',
+        contentType: "application/json",
+        success: function(data, status, xhr){
+            console.log("Successfully send data to service.");
+        },
+        Error: function(xhr, error,exception){
+            console.error("Failed to send data. " + error);
+        }
+    });
+}    
 
 function handleJSONData(data) {
     handleChartsData(data);
@@ -189,7 +207,9 @@ function regionIncreaseChart(data){
         }
      },
      axisY: {
-        gridThickness: 0
+        gridThickness: 0,
+        maximum: 3000,
+        minimum: 0
       },
       animationEnabled: true,
       data: [
@@ -206,16 +226,24 @@ function regionIncreaseChart(data){
     });
 
     barchart.render();
-    var index = 0;
+   
     function updateChart(){
-        if (index >= regionData.length) index = 0;
         barchart.options.data[0].dataPoints = regionData[index++];
         barchart.render();		
     }
-    setInterval(function(){updateChart()}, 500);
+
+    displayChart();
+
+    function displayChart(){
+        var index = 0;
+        var displayInterval = setInterval(function(){
+            if (index >= regionData.length) clearInterval(displayInterval);
+            updateChart()
+        }, 1000);
+    }
 
     $('#replay-btn').on('click', (event) => {
-
+        displayChart();
     })
 
     function startDynamicChart(){
@@ -236,6 +264,7 @@ function updateRag(index, $element, visible) {
     chartData[index].visible = visible;
 }
 
+
 // ************************baidu map
 //默认地理位置的GPS坐标
 var x = 121.506377;
@@ -247,7 +276,7 @@ function initBMap() {
     // 百度地图API功能
     var point = new BMap.Point(x, y);
     //地图初始化
-    map.centerAndZoom(point, 15);
+    map.centerAndZoom(point, 17);
     map.enableScrollWheelZoom(true);
     map.addControl(new BMap.NavigationControl());
 
@@ -255,9 +284,33 @@ function initBMap() {
         // var center =map.getCenter();
         // alert("地图中心点变更为："+ center.lng +", "+ center.lat);
         var bounds = map.getBounds();
-        createMarkerInBound(bounds);
+        createMarkerInBound(addsPoints, bounds);
     });
 
+    getCurrentPosition();
+}
+
+var myIcon = new BMap.Icon("./covid19.png", new BMap.Size(23, 25));
+// 显示当前位置
+var labels = ["当前位置"];
+
+
+function getCurrentPosition() {
+    var geoLoc = new BMap.Geolocation();
+    geoLoc.getCurrentPosition(function(r){
+        if(this.getStatus() == BMAP_STATUS_SUCCESS){
+            var mk = new BMap.Marker(r.point);
+            map.addOverlay(mk);
+            map.panTo(r.point);
+            map.centerAndZoom(r.point, 15);
+        }
+        else {
+            console.warn('failed' + this.getStatus());
+        }
+    });
+}
+
+function common_getCurrentPos(){
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -276,97 +329,90 @@ function initBMap() {
     }
 }
 
-var myIcon = new BMap.Icon("./covid19.png", new BMap.Size(23, 25));
-// 显示当前位置
-var labels = ["当前位置"];
-
-
-function getCurrentPosition() {
-    return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-            reject();
-        }
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                x = position.coords.longitude;
-                y = position.coords.latitude;
-                var newPoint = new BMap.Point(x, y);
-                //map.panTo(newPoint);
-                var convertor = new BMap.Convertor();
-                convertor.translate([newPoint], 1, 5, translateNormalCallback);
-                map.setCenter(newPoint);
-                resolve(newPoint);
-            },
-            function (e) {
-                console.log("获取当前位置失败");
-                reject();
-            }
-        )
-    })
-}
-
 function handleMapData(data) {
+    var allRegionAddress = [];
     $.each(data.details, (key, value) => {
-        var address = value.region;
+        allRegionAddress = allRegionAddress.concat(value.region);
         value.region.forEach(rgnAddr => {
-            adds = adds.concat(rgnAddr.addresses);
             bdGEO(rgnAddr.addresses);
         });
     })
-    // bdGEO(adds);
-    var bounds = map.getBounds();
-    var loopdog = 0;
-    var interval = setInterval(() => {
-        if (loopdog++ > 5000) clearInterval(interval);
-        createMarkerInBound(bounds);
-    }, 1)
+
+    pendingRequest = promiseArr.length;
+    console.log("Total request: " +  pendingRequest);
+    // save geo data
+    Promise.allSettled(promiseArr).then((values) => {
+        saveGeoData(newAddsGeo);
+    })
+
+    // web service to convert address to geo x/y
+    worker.postMessage(allRegionAddress);
+    worker.onmessage = function(d){
+        addsPoints = JSON.parse(d);
+
+        var bounds = map.getBounds();
+        var loopdog = 0;
+        var interval = setInterval(() => {
+            if (loopdog++ > 10000) clearInterval(interval);
+            createMarkerInBound(addsPoints, bounds);
+        }, 0)
+    }
 }
+
+
 
 // 批量解析地址
 var myGeo = new BMap.Geocoder();
-var adds = [];
-var addsPoints = [];
+var addsPoints = []; //[{address: xxx, geo: {lng:xxx, lat:xxx}}]
+var promiseArr = [];
+var newAddsGeo = [];
 var index = 0;
 function bdGEO(targetAdds) {
     if (!targetAdds) return;
     for (let i = 0; i < targetAdds.length; i++) {
-        geocodeSearch_sig(targetAdds[i]);
         index++;
+        if (targetAdds[i].geo) {
+            addsPoints.push(targetAdds[i]);
+            continue;
+        }
+        promiseArr.push(geocodeSearch_sig(targetAdds[i].address));
     }
     // 不能一次全部调用，否则页面会卡顿。 getPoint函数比较慢
 }
 
-function geocodeSearch(add) {
-    if (index < adds.length) {
-        setTimeout(window.bdGEO, 1);
-    } else {
-        console.log("Done");
-    }
-    myGeo.getPoint(add, function (point) {
-        if (point) {
-            point.Ye = add;
-            addsPoints.push(point);
-        }
-    }, "上海市");
-}
-
+var pendingRequest = 0;
 function geocodeSearch_sig(add) {
-    myGeo.getPoint(add, function (point) {
-        if (point) {
-            point.Ye = add;
-            addsPoints.push(point);
-        }
-    }, "上海市");
+    return new Promise((resolve, reject) => {
+        var timeout = setTimeout(() => {
+            console.log("failed for: " + add);
+            reject();
+        }, 30000);
+        myGeo.getPoint(add, function (point) {
+            console.log("Pending request " + pendingRequest--);
+            clearTimeout(timeout);
+            if (point) {
+                point.Ye = add;
+                addsPoints.push({address: add, geo: {lng:point.lng, lat:point.lat}});
+                newAddsGeo.push({address: add, geo: {lng:point.lng, lat:point.lat}});
+                resolve();
+            } else {
+                reject();
+            }
+        }, "上海市");
+    })
+    
 }
 
 // 显示当前区域内的标注
-function createMarkerInBound(bounds) {
-    addsPoints.forEach((aPoint, index) => {
+function createMarkerInBound(points, bounds) {
+    //points: [{address: xxx, geo: {lng:xxx, lat:xxx}}]
+    points.forEach((aPoint, index) => {
         if (aPoint['marked']) return;
-        if ((aPoint.lng < bounds.Ne && aPoint.lng > bounds.Te) && (aPoint.lat > bounds.ee && aPoint.lat < bounds.ce)) {
-            var address = new BMap.Point(aPoint.lng, aPoint.lat);
+        var geo = aPoint.geo;
+        if ((geo.lng < bounds.Ne && geo.lng > bounds.Te) && (geo.lat > bounds.ee && geo.lat < bounds.ce)) {
+            var address = new BMap.Point(geo.lng, geo.lat);
             aPoint['marked'] = true;
-            addMarker(address, aPoint.Ye);
+            addMarker(address, aPoint.address);
         }
     })
 }

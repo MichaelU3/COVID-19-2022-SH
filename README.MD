@@ -17,5 +17,7 @@
 
 ![每日数据](covid19.png)
 
+![每日数据](covid19-sh-heatmap.png)
+
 ![疫情地图](covid19Map.png)
 

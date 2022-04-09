@@ -91,6 +91,7 @@ function handleJSONData(data) {
     regionIncreaseChart(data);
     $("#total-amount").append("<div id=\"total-amount-num\">" + amount + "</div>");
     handleMapData(data);
+    showLayer(data['details']);
 }
 
 function handleChartsData(data) {
@@ -457,4 +458,60 @@ function coordinateConvertor(points) {
     // var point = new BMap.Point(x, y);
     var convertor = new BMap.Convertor();
     convertor.translate(points, 1, 5, translateCallback);
+}
+
+function showLayer(rs){
+    // 1. 创建地图实例
+    var bmapgl = new BMapGL.Map('map_container');
+    var x = 121.506377;
+    var y = 31.245105;
+    var point = new BMapGL.Point(x, y);
+    bmapgl.centerAndZoom(point, 12);
+
+    // 2. 创建MapVGL图层管理器
+    var view = new mapvgl.View({
+        map: bmapgl
+    });
+
+    // 4. 准备好规范化坐标数据
+    var data = [];
+    for (var i = 0; i < rs.length; i++) {
+        var dayData = rs[i];
+        var dayRegion = dayData.region
+        for (let j = 0; j < dayRegion.length; j++) {
+            const region = dayRegion[j];
+            var adds = region.addresses;
+            for (let k = 0; k < adds.length; k++) {
+                const radd = adds[k];
+                data.push({
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [radd.geo.lng, radd.geo.lat]
+                    },
+                    properties: {
+                        count: 1
+                    }
+                });
+            }
+            
+        }
+    }
+
+    // 3. 创建可视化图层，并添加到图层管理器中
+    var heatmap = new mapvgl.HeatmapLayer({
+        size: 600, // 单个点绘制大小
+        max: 40, // 最大阈值
+        height: 0, // 最大高度，默认为0
+        unit: 'm', // 单位，m:米，px: 像素
+        gradient: { // 对应比例渐变色
+            0.25: 'rgba(0, 0, 255, 1)',
+            0.55: 'rgba(0, 255, 0, 1)',
+            0.85: 'rgba(255, 255, 0, 1)',
+            1: 'rgba(255, 0, 0, 1)'
+        }
+    });
+    view.addLayer(heatmap);
+
+    // 5. 关联图层与数据，享受震撼的可视化效果
+    heatmap.setData(data);
 }

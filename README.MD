@@ -1,4 +1,4 @@
-## COVID-19 2022 上海疫情数据
+## COVID-19 2022 上海新冠疫情数据
 
 #### 网页
 [https://shcovid192022.azurewebsites.net/](https://shcovid192022.azurewebsites.net/)

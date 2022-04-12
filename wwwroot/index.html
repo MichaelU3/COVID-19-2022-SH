@@ -54,16 +54,34 @@
             text-align: center;
             margin-top: 30px;
         }
-        #region-chart-replay {
+        #region-chart-action {
             display: inline-block;
+            margin-left: 320px;
+            position: absolute;
+            margin-top: -150px;
         }
-        #replay-btn {
+        #replay-btn,
+        #stop-btn {
             height: 30px;
             width: 130px;
             background-color: #0070B8;
             text-align: center;
             line-height: 30px;
             color: white;
+            margin-top: 5px;
+        }
+        #region-chart-date{
+            width: 200px;
+            background: lightgray;
+            height: 50px;
+            text-align: center;
+            line-height: 50px;
+            font-size: xxx-large;
+            position: absolute;
+            margin-left: 150px;
+            margin-top: -130px;
+            display: inline-block;
+            transform: translateX(500%);
         }
     </style>
 
@@ -80,12 +98,18 @@
     总数： <div id="total-amount"></div>
     日期： <div id="date"></div>
     <div id="chartContainer" style="height: 370px; max-width: 920px; margin: 0px auto;"></div>
-    <div>
-        <div id="regionChartsContainer" style="height: 500px; max-width: 920px; margin: 0px auto;"></div>
-        <div id="region-chart-replay">
+    <div style="margin: 30px 0;">
+        <div id="chart-ele" style="height: 550px; margin: 0px auto;">
+                <div id="regionChartsContainer" style="height: 500px; max-width: 920px;margin: 0px auto;"></div>
+                <div id="region-chart-date"></div>
+        </div>
+        <div id="region-chart-action">
             <div id="replay-btn">Replay</div>
+            <div id="stop-btn">Stop</div>
         </div>
     </div>
+
+    <div id="chartContainer-region" style="height: 500px; max-width: 920px; margin: 0px auto;"></div>
     
     <div id="region-select" style="display: none">
         显示：

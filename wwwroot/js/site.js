@@ -67,6 +67,7 @@ function generateChartOption(name) {
 
 function getData() {
     $.getJSON("./data?v=" + Math.random, handleJSONData, 1);
+    //$.getJSON("./dailyIncFromFXRQ?v=" + Math.random, handleFenXianRenQunData, 1);
 }
 
 //save geo data in service
@@ -93,6 +94,10 @@ function handleJSONData(data) {
     $("#total-amount").append("<div id=\"total-amount-num\">" + amount + "</div>");
     handleMapData(data);
     showLayer(data['details']);
+}
+
+function handleFenXianRenQunData(data){
+    fenXianRenQunData = data;
 }
 
 function handleChartsData(data) {
@@ -122,6 +127,7 @@ function handleChartsData(data) {
     chart.render();
 }
 
+var targetRegion = "浦东新区";
 function createRegionColumnChart(data) {
     // handle data
     var regionData = []; //[{region: xxx, data: {label: xxx, y: xxx}}]
@@ -132,34 +138,85 @@ function createRegionColumnChart(data) {
                 rd = {region: rgnAddr.name, data: []};
                 regionData.push(rd);
             }
-            rd.data.push({label: value.day, y: rgnAddr.amount});
+            rd.data.push({x: key, label: value.day, y: rgnAddr.amount});
         });
         
     });
 
-    var targetRegion = "浦东新区";
     var targetRegionData = regionData.find(r => r.region === targetRegion).data;
-    var regionChartData = [{
+    var regionChartData = {
         type: "column",
-        name: targetRegion + "单日阳",
+        name: "单日新增",
         dataPoints: targetRegionData
-    }];
+    };
+
+    // 单日风险人群
+    var increateData = [];
+    $.each(data.increases, (key, value) => {
+        increateData.push({x: data.details.findIndex(d => d.day == value.day),label: value.day, y: value[targetRegion]});
+    });
+    var increaseLineChartData = {
+        type: "line",
+        axisYType: "secondary",
+        showInLegend: true,
+        name: "风险人群中发现",
+        color: "orange",
+        dataPoints: increateData
+    };
+
+    var FXPercData = [];
+    function calcPercent(num, sum){
+        const result = (num / sum) * 100;
+        return parseFloat(result.toFixed(2));
+    }
+    increateData.forEach((v, i) => {
+        var sum = targetRegionData.find(r => r.label === v.label);
+        FXPercData.push({x: v.x, label: v.label, y: calcPercent(v.y, sum.y)});
+    });
+    var fxPercentageLineChartData = {
+        type: "line",
+        axisYType: "secondary",
+        showInLegend: true,
+        axisYIndex: 1,
+        name: "风险人群中发现占比",
+        color:"#C24642",
+        dataPoints: FXPercData
+    };
     
     var chart = new CanvasJS.Chart("chartContainer-region", {
-        animationEnabled: true,
-        theme: "light2", // "light1", "light2", "dark1", "dark2"
+        // animationEnabled: true,
+        // theme: "light2", // "light1", "light2", "dark1", "dark2"
         title: {
             text: ""
         },
-        axisY: {
-            title: "",
-            interlacedColor: "Azure",
-            //interval: 100,
-            tickColor: "navy",
-            gridColor: "navy",
-            tickLength: 10
+        axisX:{
+            viewportMinimum: 22,
         },
-        data: regionChartData
+        axisY:
+            {
+                title: "",
+                interlacedColor: "Azure",
+                //interval: 100,
+                tickColor: "navy",
+                gridColor: "navy",
+                tickLength: 10
+            },
+         axisY2:[
+            {
+                title: "",
+                lineColor: "#C0504E",
+            },
+            {
+                title: "",
+                lineColor: "#C24642",
+                minimum: 0,
+                maximum: 100,
+            },
+         ],
+         toolTip:{
+            shared: true,
+          },
+        data: [regionChartData, increaseLineChartData, fxPercentageLineChartData]
     });
     chart.options.title.text = targetRegion + " - 单日新增";
     chart.render();

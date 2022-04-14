@@ -33,6 +33,19 @@ app.MapPost("/data", (List<AddressGeo> data) =>
     DataJSONContentHandler.UpdateGeo(data);
 });
 
+/// <summary>
+/// 风险人群筛查中发现
+/// </summary>
+app.MapGet("/dailyIncFromFXRQ", () =>
+ {
+     if (!File.Exists("风险人群.json")) return new List<Increase>();
+     var input = File.ReadAllText("风险人群.json");
+     var formatedInput = IncreaseAnalysis.FormatWZZContents(input);
+     List<Increase> datas = IncreaseAnalysis.Analyze(formatedInput);
+     return datas;
+     // string results = JsonConvert.SerializeObject(datas, Formatting.Indented);
+ });
+
 app.Run();
 
 
@@ -86,11 +99,22 @@ internal class Generator
 
         result.Details.Sort((a, b) => Convert.ToDouble(a.Day.Replace(".", "")) > Convert.ToDouble(b.Day.Replace(".", "")) ? 1 : -1);
 
+        result.Increases = this.AddIncreaseData();
+
         Dictionary<string, List<AmountOfDay>> increasment = new Dictionary<string, List<AmountOfDay>>();
 
         DataJSONContentHandler.CreateDataJson(result);
 
         return result;
+    }
+
+    public List<Increase> AddIncreaseData()
+    {
+        if (!File.Exists("风险人群.json")) return new List<Increase>();
+        var input = File.ReadAllText("风险人群.json");
+        var formatedInput = IncreaseAnalysis.FormatWZZContents(input);
+        List<Increase> datas = IncreaseAnalysis.Analyze(formatedInput);
+        return datas;
     }
 
 
@@ -373,7 +397,127 @@ internal class Result
 {
     public List<Data> Details { get; set; }
     public List<AmountOfDay> Amounts { get; set; }
+    public List<Increase> Increases { get; set; }
 
+}
+
+public static class IncreaseAnalysis
+{
+    public static string FormatWZZContents(string source)
+    {
+        return source.Replace("，无症状", ";无症状").Replace("，病例", ";病例");
+    }
+    public static List<Increase> Analyze(string source)
+    {
+        List<Increase> result = new List<Increase>();
+#pragma warning disable CS8600 // 将 null 字面量或可能为 null 的值转换为非 null 类型。
+        List<IncreaseSource> esource = JsonConvert.DeserializeObject<List<IncreaseSource>>(source);
+#pragma warning restore CS8600 // 将 null 字面量或可能为 null 的值转换为非 null 类型。
+#pragma warning disable CS8602 // 解引用可能出现空引用。
+        foreach (IncreaseSource s in esource)
+#pragma warning restore CS8602 // 解引用可能出现空引用。
+        {
+            result.Add(IncreaseAnalysis.Analyze(s.data, s.day));
+        }
+        return result;
+    }
+    public static Increase Analyze(string source, string day)
+    {
+        Increase data = new Increase(day);
+        var increaseType = typeof(Increase);
+        var partten = @"无症状感染者(\d+)([—|、]无症状感染者(\d+))?，居住于(\w+)";
+        var qzPartten = @"病例(\d+)([—|、]病例(\d+))?，居住于(\w+)";
+        var dArr = source.Split(';');
+        foreach (var d in dArr)
+        {
+            Match m = Regex.Match(d, partten);
+            if (m.Success)
+            {
+                var inc = 1;
+                if (m.Groups[3].Success)
+                {
+                    inc = Convert.ToInt32(m.Groups[3].Value) - Convert.ToInt32(m.Groups[1].Value);
+                }
+                var region = m.Groups[4].Value;
+                if (!string.IsNullOrEmpty(region))
+                {
+#pragma warning disable CS8605 // 取消装箱可能为 null 的值。
+#pragma warning disable CS8602 // 解引用可能出现空引用。
+                    int v = (int)increaseType.GetProperty(region).GetValue(data, null);
+#pragma warning restore CS8602 // 解引用可能出现空引用。
+#pragma warning restore CS8605 // 取消装箱可能为 null 的值。
+#pragma warning disable CS8602 // 解引用可能出现空引用。
+                    increaseType.GetProperty(region).SetValue(data, inc + v, null);
+#pragma warning restore CS8602 // 解引用可能出现空引用。
+                }
+            }
+
+            m = Regex.Match((string)d, qzPartten);
+            if (m.Success)
+            {
+                var inc = 1;
+                if (m.Groups[3].Success)
+                {
+                    inc = Convert.ToInt32(m.Groups[3].Value) - Convert.ToInt32(m.Groups[1].Value);
+                }
+                var region = m.Groups[4].Value;
+                if (!string.IsNullOrEmpty(region))
+                {
+#pragma warning disable CS8605 // 取消装箱可能为 null 的值。
+#pragma warning disable CS8602 // 解引用可能出现空引用。
+                    int v = (int)increaseType.GetProperty(region).GetValue(data, null);
+#pragma warning restore CS8602 // 解引用可能出现空引用。
+#pragma warning restore CS8605 // 取消装箱可能为 null 的值。
+#pragma warning disable CS8602 // 解引用可能出现空引用。
+                    increaseType.GetProperty(region).SetValue(data, inc + v, null);
+#pragma warning restore CS8602 // 解引用可能出现空引用。
+                }
+            }
+        }
+
+        return data;
+    }
+
+
+}
+
+public class IncreaseSource
+{
+    public string day { get; set; }
+    public string data { get; set; }
+}
+
+public class Increase
+{
+    public string day { get; set; }
+    public int 徐汇区 { get; set; } = 0;
+    public int 闵行区 { get; set; } = 0;
+    public int 浦东新区 { get; set; } = 0;
+    public int 黄浦区 { get; set; } = 0;
+    public int 静安区 { get; set; } = 0;
+    public int 长宁区 { get; set; } = 0;
+    public int 虹口区 { get; set; } = 0;
+    public int 杨浦区 { get; set; } = 0;
+    public int 普陀区 { get; set; } = 0;
+    public int 宝山区 { get; set; } = 0;
+    public int 嘉定区 { get; set; } = 0;
+    public int 金山区 { get; set; } = 0;
+    public int 松江区 { get; set; } = 0;
+    public int 青浦区 { get; set; } = 0;
+    public int 奉贤区 { get; set; } = 0;
+    public int 崇明区 { get; set; } = 0;
+    public int sum
+    {
+        get
+        {
+            return 徐汇区 + 闵行区 + 浦东新区 + 黄浦区 + 静安区 + 长宁区 + 虹口区 + 杨浦区 + 普陀区 + 宝山区 + 嘉定区 + 金山区 + 松江区 + 青浦区 + 奉贤区 + 崇明区;
+        }
+    }
+
+    public Increase(string day)
+    {
+        this.day = day;
+    }
 }
 
 internal static class StringExtension

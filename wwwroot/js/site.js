@@ -1,5 +1,4 @@
-﻿
-function onLoad() {
+﻿function onLoad() {
     var date = new Date();
     var currentDate = date.toISOString().slice(0, 10);
     var aa = document.getElementById('date');
@@ -7,35 +6,23 @@ function onLoad() {
 
     getData();
 
-    var allCheckbox = $(".reg-chxbox");
-    allCheckbox.each(function (index, $element) {
-        $(this).on("click", function (e) {
-            var name = $element.name;
-            console.log(name);
-            if (index === 0) {
-                udpateAll();
-            } else {
-                if (allCheckbox[0].checked) {
-                    allCheckbox[0].checked = false;
-                    chartData.forEach((cd, j) => j > 0 && (cd.visible = false));
-                }
-                updateRag(index, $element, $element.checked);
-            }
-            function udpateAll() {
-                allCheckbox.each(function (aindex, $all) {
-                    if (aindex === 0) return;
-                    updateRag(aindex, $all, allCheckbox[0].checked);
-                    $all.checked = false;
-                });
-            };
-            chart.render();
-        });
+    var addSearchTarget$ = $("#search-address-ipt");
+    var resutsContainer$ = $("#results");
+    document.getElementById("search-btn").addEventListener("click", function() {
+        resutsContainer$.empty();
+        var tgt = addSearchTarget$.val();
+        tgt = tgt.replace("上海市", "");
+        var results = addsPoints.filter(ap => ap.address.indexOf(tgt) > 0);
+        results.sort((a, b) => { return b - a });
+        var elements = "";
+        results.forEach(r => {
+            elements += "<li class='address-row'><b>" + r.day + "</b> : " + r.address + "</li>";
+        })
+        elements = "<ul>" + elements + "</ul>";
+        resutsContainer$.append(elements);
     });
 }
 
-if(window.Worker){
-    console.log("Support worker");
-}
 var worker = new Worker('js/worker.js');
 
 var chartData = [];
@@ -67,46 +54,48 @@ function generateChartOption(name) {
 
 function getData() {
     $.getJSON("./data?v=" + Math.random, handleJSONData, 1);
-    //$.getJSON("./dailyIncFromFXRQ?v=" + Math.random, handleFenXianRenQunData, 1);
 }
 
 //save geo data in service
-function saveGeoData(jsonData){
+function saveGeoData(jsonData) {
     $.ajax({
         type: 'POST',
         url: './data',
         data: JSON.stringify(jsonData),
         dataType: 'json',
         contentType: "application/json",
-        success: function(data, status, xhr){
+        success: function(data, status, xhr) {
             console.log("Successfully send data to service.");
         },
-        Error: function(xhr, error,exception){
+        Error: function(xhr, error, exception) {
             console.error("Failed to send data. " + error);
         }
     });
-}    
+}
 
 function handleJSONData(data) {
     handleChartsData(data);
-    createRegionColumnChart(data);
-    regionIncreaseChart(data);
+
+    var increaseChart = new RegionDailyIncreaseChart();
+    increaseChart.createRegionColumnChart(data);
+
+    var regionBarChart = new RegionLiveComparingChart();
+    regionBarChart.createRegionBarChart(data);
+
     $("#total-amount").append("<div id=\"total-amount-num\">" + amount + "</div>");
     handleMapData(data);
-    showLayer(data['details']);
-}
 
-function handleFenXianRenQunData(data){
-    fenXianRenQunData = data;
+    var hotHeatMap = new HotHeatMap(mapvgl);
+    hotHeatMap.showLayer(data['details']);
 }
 
 function handleChartsData(data) {
-    $.each(data.amounts, function (key, value) {
+    $.each(data.amounts, function(key, value) {
         columnDataPoints.push({ y: value.amount, label: value.day, indexLabel: value.amount.toString() });
         amount += value.amount;
     });
     chartData.push(overallAmount);
-    
+
     var lineColor = '';
     var chart = new CanvasJS.Chart("chartContainer", {
         animationEnabled: true,
@@ -127,103 +116,7 @@ function handleChartsData(data) {
     chart.render();
 }
 
-var targetRegion = "浦东新区";
-function createRegionColumnChart(data) {
-    // handle data
-    var regionData = []; //[{region: xxx, data: {label: xxx, y: xxx}}]
-    $.each(data.details, (key, value) => {
-        value.region.forEach(rgnAddr => {
-            var rd = regionData.find(r => r.region === rgnAddr.name);
-            if (!rd){
-                rd = {region: rgnAddr.name, data: []};
-                regionData.push(rd);
-            }
-            rd.data.push({x: key, label: value.day, y: rgnAddr.amount});
-        });
-        
-    });
-
-    var targetRegionData = regionData.find(r => r.region === targetRegion).data;
-    var regionChartData = {
-        type: "column",
-        name: "单日新增",
-        dataPoints: targetRegionData
-    };
-
-    // 单日风险人群
-    var increateData = [];
-    $.each(data.increases, (key, value) => {
-        increateData.push({x: data.details.findIndex(d => d.day == value.day),label: value.day, y: value[targetRegion]});
-    });
-    var increaseLineChartData = {
-        type: "line",
-        axisYType: "secondary",
-        showInLegend: true,
-        name: "风险人群中发现",
-        color: "orange",
-        dataPoints: increateData
-    };
-
-    var FXPercData = [];
-    function calcPercent(num, sum){
-        const result = (num / sum) * 100;
-        return parseFloat(result.toFixed(2));
-    }
-    increateData.forEach((v, i) => {
-        var sum = targetRegionData.find(r => r.label === v.label);
-        FXPercData.push({x: v.x, label: v.label, y: calcPercent(v.y, sum.y)});
-    });
-    var fxPercentageLineChartData = {
-        type: "line",
-        axisYType: "secondary",
-        showInLegend: true,
-        axisYIndex: 1,
-        name: "风险人群中发现占比",
-        color:"#C24642",
-        dataPoints: FXPercData
-    };
-    
-    var chart = new CanvasJS.Chart("chartContainer-region", {
-        // animationEnabled: true,
-        // theme: "light2", // "light1", "light2", "dark1", "dark2"
-        title: {
-            text: ""
-        },
-        axisX:{
-            viewportMinimum: 22,
-        },
-        axisY:
-            {
-                title: "",
-                interlacedColor: "Azure",
-                //interval: 100,
-                tickColor: "navy",
-                gridColor: "navy",
-                tickLength: 10
-            },
-         axisY2:[
-            {
-                title: "",
-                lineColor: "#C0504E",
-            },
-            {
-                title: "",
-                lineColor: "#C24642",
-                minimum: 0,
-                maximum: 100,
-            },
-         ],
-         toolTip:{
-            shared: true,
-          },
-        data: [regionChartData, increaseLineChartData, fxPercentageLineChartData]
-    });
-    chart.options.title.text = targetRegion + " - 单日新增";
-    chart.render();
-}
-
-CanvasJS.addColorSet("regionColors",
-    [//colorSet Array
+CanvasJS.addColorSet("regionColors", [ //colorSet Array
     "#9966CC",
     "#FF033E",
     "#5D8AA8",
@@ -243,93 +136,6 @@ CanvasJS.addColorSet("regionColors",
     "#EC3B83",
 ]);
 
-var regionColors = ["#9966CC","#FF033E","#5D8AA8","#3B7A57","#FFBF00","#FF7E00","#A4C639","#915C83","#CD9575","#89CFF0","#E0218A","#FE6F5E","#0D98BA","#CC5500","#00BFFF","#007BA7","#EC3B83"];
-var regionNames = ["徐汇区", "闵行区", "浦东新区", "黄浦区", "静安区", "长宁区", "虹口区", "杨浦区", "普陀区", "宝山区", "嘉定区", "金山区", "松江区", "青浦区", "奉贤区", "崇明区" ];
-
-function regionIncreaseChart(data){
-    var regionData = [];
-    $.each(data.details, (key, value) => {
-        var address = value.region;
-        var regionAmount = [];
-        value.region.forEach(rgnAddr => {
-            regionAmount.push({
-                label: rgnAddr.name,
-                color: regionColors[regionNames.indexOf(rgnAddr.name)],
-                y: rgnAddr.amount,
-                //x: regionNames.indexOf(rgnAddr.name),
-                d: value.day
-            })
-        });
-        regionAmount.sort((a,b) => a.y - b.y);
-        regionData.push(regionAmount);
-    })
-    var datapoints = regionData[0];
-    var barchart = new CanvasJS.Chart("regionChartsContainer",
-        {
-            //colorSet: "regionColors",
-            title: {
-                text: "Region Increase"
-            },
-            axisX: {
-                //title: "region",
-                interval: 1,
-                gridThickness: 0,
-                tickLength: 0,
-                lineThickness: 0,
-                labelFormatter: function () {
-                    return " ";
-                }
-            },
-            axisY: {
-                gridThickness: 0,
-                maximum: 3000,
-                minimum: 0
-            },
-            animationEnabled: true,
-            data: [
-                {
-                    type: "bar",
-                    indexLabel: "{label} : {y}",
-                    indexLabelPlacement: "outside",
-                    indexLabelOrientation: "horizontal", // "horizontal", "vertical"
-                    indexLabelTextAlign: "right", //"left", "right"
-                    indexLabelFontColor: "black",
-                    dataPoints: datapoints
-                }
-            ]
-        });
-
-    var $date = document.getElementById("region-chart-date");
-    var index = 0;
-    let displayInterval;
-    function displayChart(){
-        if (!displayInterval){
-            displayInterval = setInterval(function(){
-                if (index >= regionData.length) index= 0;
-                // console.log("show data for index: " + index);
-                updateChart(index++)
-            }, 800);
-        }
-        
-        function updateChart(index){
-            $date.innerHTML = regionData[index][0].d;
-            barchart.options.data[0].dataPoints = regionData[index];
-            barchart.render();		
-        }
-    }
-
-    document.getElementById("replay-btn").addEventListener("click", function(){
-        console.log("continue replay data");
-        displayChart();
-    });
-    document.getElementById("stop-btn").addEventListener("click", function(){
-        console.log("stop replay data");
-        clearInterval(displayInterval);
-        displayInterval = null;
-    });
-
-    displayChart();
-}
 
 function updateRag(index, $element, visible) {
     $element.checked = visible;
@@ -343,6 +149,7 @@ var x = 121.506377;
 var y = 31.245105;
 var map = new BMap.Map("container");
 initBMap();
+
 function initBMap() {
 
     // 百度地图API功能
@@ -352,7 +159,7 @@ function initBMap() {
     map.enableScrollWheelZoom(true);
     map.addControl(new BMap.NavigationControl());
 
-    map.addEventListener("dragend", function () {
+    map.addEventListener("dragend", function() {
         // var center =map.getCenter();
         // alert("地图中心点变更为："+ center.lng +", "+ center.lat);
         var bounds = map.getBounds();
@@ -369,20 +176,19 @@ var labels = ["当前位置"];
 
 function getCurrentPosition() {
     var geoLoc = new BMap.Geolocation();
-    geoLoc.getCurrentPosition(function(r){
-        if(this.getStatus() == BMAP_STATUS_SUCCESS){
+    geoLoc.getCurrentPosition(function(r) {
+        if (this.getStatus() == BMAP_STATUS_SUCCESS) {
             var mk = new BMap.Marker(r.point);
             map.addOverlay(mk);
             map.panTo(r.point);
             map.centerAndZoom(r.point, 15);
-        }
-        else {
+        } else {
             console.warn('failed' + this.getStatus());
         }
     });
 }
 
-function common_getCurrentPos(){
+function common_getCurrentPos() {
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -394,7 +200,7 @@ function common_getCurrentPos(){
                 convertor.translate([newPoint], 1, 5, translateNormalCallback);
                 map.setCenter(newPoint);
             },
-            function (e) {
+            function(e) {
                 console.log("获取当前位置失败");
             }
         )
@@ -406,12 +212,13 @@ function handleMapData(data) {
     $.each(data.details, (key, value) => {
         allRegionAddress = allRegionAddress.concat(value.region);
         value.region.forEach(rgnAddr => {
-            bdGEO(rgnAddr.addresses);
+            rgnAddr.addresses.every(a => a.day = value.day);
+            bdGEO(rgnAddr.addresses, value.day);
         });
     })
 
     pendingRequest = promiseArr.length;
-    console.log("Total request: " +  pendingRequest);
+    console.log("Total request: " + pendingRequest);
     // save geo data
     Promise.allSettled(promiseArr).then((values) => {
         saveGeoData(newAddsGeo);
@@ -419,7 +226,7 @@ function handleMapData(data) {
 
     // web service to convert address to geo x/y
     worker.postMessage(allRegionAddress);
-    worker.onmessage = function(d){
+    worker.onmessage = function(d) {
         addsPoints = JSON.parse(d);
 
         var bounds = map.getBounds();
@@ -435,11 +242,12 @@ function handleMapData(data) {
 
 // 批量解析地址
 var myGeo = new BMap.Geocoder();
-var addsPoints = []; //[{address: xxx, geo: {lng:xxx, lat:xxx}}]
+var addsPoints = []; //[{address: xxx, day: xxx, geo: {lng:xxx, lat:xxx}}]
 var promiseArr = [];
 var newAddsGeo = [];
 var index = 0;
-function bdGEO(targetAdds) {
+
+function bdGEO(targetAdds, tday) {
     if (!targetAdds) return;
     for (let i = 0; i < targetAdds.length; i++) {
         index++;
@@ -447,32 +255,33 @@ function bdGEO(targetAdds) {
             addsPoints.push(targetAdds[i]);
             continue;
         }
-        promiseArr.push(geocodeSearch_sig(targetAdds[i].address));
+        promiseArr.push(geocodeSearch_sig(targetAdds[i].address, tday));
     }
     // 不能一次全部调用，否则页面会卡顿。 getPoint函数比较慢
 }
 
 var pendingRequest = 0;
-function geocodeSearch_sig(add) {
+
+function geocodeSearch_sig(add, tday) {
     return new Promise((resolve, reject) => {
         var timeout = setTimeout(() => {
             console.log("failed for: " + add);
             reject();
         }, 30000);
-        myGeo.getPoint(add, function (point) {
-            console.log("Pending request " + pendingRequest--);
+        myGeo.getPoint(add, function(point) {
+            // console.log("Pending request " + pendingRequest--);
             clearTimeout(timeout);
             if (point) {
                 point.Ye = add;
-                addsPoints.push({address: add, geo: {lng:point.lng, lat:point.lat}});
-                newAddsGeo.push({address: add, geo: {lng:point.lng, lat:point.lat}});
+                addsPoints.push({ address: add, geo: { lng: point.lng, lat: point.lat }, day: tday });
+                newAddsGeo.push({ address: add, geo: { lng: point.lng, lat: point.lat } });
                 resolve();
             } else {
                 reject();
             }
         }, "上海市");
     })
-    
+
 }
 
 // 显示当前区域内的标注
@@ -510,8 +319,7 @@ function translateCallback(data) {
         for (var i = 0; i < data.points.length; i++) {
             addMarker(data.points[i], this.labels[i]);
         }
-    }
-    else {
+    } else {
         console.error("Convert failed.");
     }
 }
@@ -531,59 +339,336 @@ function coordinateConvertor(points) {
     convertor.translate(points, 1, 5, translateCallback);
 }
 
-function showLayer(rs){
-    // 1. 创建地图实例
-    var bmapgl = new BMapGL.Map('map_container');
-    var x = 121.506377;
-    var y = 31.245105;
-    var point = new BMapGL.Point(x, y);
-    bmapgl.centerAndZoom(point, 12);
+class HotHeatMap {
+    _mapvgl;
+    constructor(mapvgl) {
+        this._mapvgl = mapvgl;
+    }
 
-    // 2. 创建MapVGL图层管理器
-    var view = new mapvgl.View({
-        map: bmapgl
-    });
+    showLayer(rs) {
+        // 1. 创建地图实例
+        var bmapgl = new BMapGL.Map('map_container');
+        var x = 121.506377;
+        var y = 31.245105;
+        var point = new BMapGL.Point(x, y);
+        bmapgl.centerAndZoom(point, 12);
 
-    // 4. 准备好规范化坐标数据
-    var data = [];
-    for (var i = 0; i < rs.length; i++) {
-        var dayData = rs[i];
-        var dayRegion = dayData.region
-        for (let j = 0; j < dayRegion.length; j++) {
-            const region = dayRegion[j];
-            var adds = region.addresses;
-            for (let k = 0; k < adds.length; k++) {
-                const radd = adds[k];
-                if(!radd.geo) continue;
-                data.push({
-                    geometry: {
-                        type: 'Point',
-                        coordinates: [radd.geo.lng, radd.geo.lat]
-                    },
-                    properties: {
-                        count: 1
-                    }
-                });
+        // 2. 创建MapVGL图层管理器
+        var view = new this._mapvgl.View({
+            map: bmapgl
+        });
+
+        // 4. 准备好规范化坐标数据
+        var data = [];
+        for (var i = 0; i < rs.length; i++) {
+            var dayData = rs[i];
+            var dayRegion = dayData.region
+            for (let j = 0; j < dayRegion.length; j++) {
+                const region = dayRegion[j];
+                var adds = region.addresses;
+                for (let k = 0; k < adds.length; k++) {
+                    const radd = adds[k];
+                    if (!radd.geo) continue;
+                    data.push({
+                        geometry: {
+                            type: 'Point',
+                            coordinates: [radd.geo.lng, radd.geo.lat]
+                        },
+                        properties: {
+                            count: 1
+                        }
+                    });
+                }
+
             }
-            
+        }
+
+        // 3. 创建可视化图层，并添加到图层管理器中
+        var heatmap = new this._mapvgl.HeatmapLayer({
+            size: 600, // 单个点绘制大小
+            max: 40, // 最大阈值
+            height: 0, // 最大高度，默认为0
+            unit: 'm', // 单位，m:米，px: 像素
+            gradient: { // 对应比例渐变色
+                0.25: 'rgba(0, 0, 255, 1)',
+                0.55: 'rgba(0, 255, 0, 1)',
+                0.85: 'rgba(255, 255, 0, 1)',
+                1: 'rgba(255, 0, 0, 1)'
+            }
+        });
+        view.addLayer(heatmap);
+
+        // 5. 关联图层与数据，享受震撼的可视化效果
+        heatmap.setData(data);
+    }
+}
+
+
+class RegionDailyIncreaseChart {
+
+    targetRegion = "浦东新区";
+    regionIncreaseAmountData = []; //[{region: xxx, data: {label: xxx, y: xxx}}]
+    FXRQIncreaseSummaryData;
+    regionIncreaseChart;
+    dataDetails;
+    regionChartData;
+    increaseLineChartData;
+    fxPercentageLineChartData;
+
+    constructor() {
+        this.regionIncreaseChart = this.initRegionColumnChart();
+        var allCheckbox = $(".reg-chxbox");
+        allCheckbox.each((index, $element) => {
+            $($element).on("click", (e) => {
+                var currentVal = $($element).prop('checked');
+                allCheckbox.each((index, elem) => $(elem).prop('checked', false));
+                console.log($element.name);
+                if (!currentVal || $element.name == "all") {
+                    $(allCheckbox[0]).prop('checked', true);
+                    this.updateWithAllData();
+                } else {
+                    $($element).prop('checked', true);
+                    this.targetRegion = $element.name;
+                    this.updateRegionColumnChart();
+
+                }
+            });
+        });
+    }
+    createRegionColumnChart(data) {
+        // handle data
+        this.dataDetails = data.details;
+        $.each(this.dataDetails, (key, value) => {
+            value.region.forEach(rgnAddr => {
+                var rd = this.regionIncreaseAmountData.find(r => r.region === rgnAddr.name);
+                if (!rd) {
+                    rd = { region: rgnAddr.name, data: [] };
+                    this.regionIncreaseAmountData.push(rd);
+                }
+                rd.data.push({ x: key, label: value.day, y: rgnAddr.amount });
+            });
+
+        });
+
+        this.FXRQIncreaseSummaryData = data.increases;
+
+        this.updateRegionColumnChart();
+    }
+
+    initRegionColumnChart() {
+        // 单日新增
+        this.regionChartData = {
+            type: "column",
+            name: "单日新增",
+            dataPoints: []
+        };
+
+        // 单日风险人群
+        this.increaseLineChartData = {
+            type: "line",
+            axisYType: "secondary",
+            showInLegend: true,
+            name: "风险人群中发现",
+            color: "orange",
+            dataPoints: []
+        };
+
+        // 单日风险人群比率
+        this.fxPercentageLineChartData = {
+            type: "line",
+            axisYType: "secondary",
+            showInLegend: true,
+            axisYIndex: 1,
+            name: "风险人群中发现占比",
+            color: "#C24642",
+            dataPoints: []
+        };
+
+        // chart option
+        var chart = new CanvasJS.Chart("chartContainer-region", {
+            // animationEnabled: true,
+            // theme: "light2", // "light1", "light2", "dark1", "dark2"
+            title: {
+                text: ""
+            },
+            axisX: {
+                viewportMinimum: 22,
+            },
+            axisY: {
+                title: "",
+                interlacedColor: "Azure",
+                //interval: 100,
+                tickColor: "navy",
+                gridColor: "navy",
+                tickLength: 10
+            },
+            axisY2: [{
+                    title: "",
+                    lineColor: "#C0504E",
+                },
+                {
+                    title: "",
+                    lineColor: "#C24642",
+                    minimum: 0,
+                    maximum: 100,
+                },
+            ],
+            toolTip: {
+                shared: true,
+            },
+            data: [this.regionChartData, this.increaseLineChartData, this.fxPercentageLineChartData]
+        });
+        return chart;
+    }
+
+    calcPercent(num, sum) {
+        const result = (num / sum) * 100;
+        return parseFloat(result.toFixed(2));
+    }
+
+    updateRegionColumnChart() {
+        // 单日新增 - 数据
+        var targetRegionData = this.regionIncreaseAmountData.find(r => r.region === this.targetRegion).data;
+        this.regionChartData.dataPoints = targetRegionData;
+
+        // 单日风险人群 - 数据
+        var increaseInFXRQData = [];
+        this.FXRQIncreaseSummaryData.forEach((value, key) => {
+            increaseInFXRQData.push({ x: this.dataDetails.findIndex(d => d.day == value.day), label: value.day, y: value[this.targetRegion] });
+        });
+
+        // 单日风险人群比率 - 数据
+        var FXPercData = [];
+        increaseInFXRQData.forEach((v, i) => {
+            var sum = targetRegionData.find(r => r.label === v.label);
+            FXPercData.push({ x: v.x, label: v.label, y: this.calcPercent(v.y, sum.y) });
+        });
+        this.increaseLineChartData.dataPoints = increaseInFXRQData;
+        this.fxPercentageLineChartData.dataPoints = FXPercData;
+
+        this.regionIncreaseChart.options.title.text = this.targetRegion + " - 单日新增";
+        this.regionIncreaseChart.render();
+    }
+
+    updateWithAllData() {
+        // 单日新增 - 数据
+        var allRegionData = [];
+        var keys = this.regionIncreaseAmountData[0].data.length;
+        for (let i = 0; i < keys; i++) {
+            let sum = this.regionIncreaseAmountData.reduce((pv, cv, ) => pv + cv.data[i].y, 0);
+            allRegionData.push({ x: i, label: this.regionIncreaseAmountData[0].data[i].label, y: sum });
+        }
+        this.regionChartData.dataPoints = allRegionData;
+
+        // 单日风险人群 - 数据
+        var increaseInFXRQData = [];
+        this.FXRQIncreaseSummaryData.forEach((value, key) => {
+            increaseInFXRQData.push({ x: this.dataDetails.findIndex(d => d.day == value.day), label: value.day, y: value.sum });
+        });
+
+        // 单日风险人群比率 - 数据
+        var FXPercData = [];
+        increaseInFXRQData.forEach((v, i) => {
+            var sum = allRegionData.find(r => r.label === v.label);
+            FXPercData.push({ x: v.x, label: v.label, y: this.calcPercent(v.y, sum.y) });
+        });
+        this.increaseLineChartData.dataPoints = increaseInFXRQData;
+        this.fxPercentageLineChartData.dataPoints = FXPercData;
+
+        this.regionIncreaseChart.options.title.text = "上海市 - 单日新增";
+        this.regionIncreaseChart.render();
+    }
+}
+
+class RegionLiveComparingChart {
+    static regionColors = ["#9966CC", "#FF033E", "#5D8AA8", "#3B7A57", "#FFBF00", "#FF7E00", "#A4C639", "#915C83", "#CD9575", "#89CFF0", "#E0218A", "#FE6F5E", "#0D98BA", "#CC5500", "#00BFFF", "#007BA7", "#EC3B83"];
+    static regionNames = ["徐汇区", "闵行区", "浦东新区", "黄浦区", "静安区", "长宁区", "虹口区", "杨浦区", "普陀区", "宝山区", "嘉定区", "金山区", "松江区", "青浦区", "奉贤区", "崇明区"];
+
+    barchart;
+    displayInterval;
+    regionData = [];
+    dateElement;
+    index = 0;
+
+    constructor() {
+        this.barchart = this.initBarChart();
+        document.getElementById("replay-btn").addEventListener("click", function() {
+            console.log("continue replay data");
+            this.displayChart();
+        });
+        document.getElementById("stop-btn").addEventListener("click", function() {
+            console.log("stop replay data");
+            clearInterval(this.displayInterval);
+            this.displayInterval = null;
+        });
+        this.dateElement = document.getElementById("region-chart-date");
+    }
+
+    createRegionBarChart(data) {
+        data.details.forEach((value, key) => {
+            var regionAmount = [];
+            value.region.forEach(rgnAddr => {
+                regionAmount.push({
+                    label: rgnAddr.name,
+                    color: RegionLiveComparingChart.regionColors[RegionLiveComparingChart.regionNames.indexOf(rgnAddr.name)],
+                    y: rgnAddr.amount,
+                    //x: regionNames.indexOf(rgnAddr.name),
+                    d: value.day
+                })
+            });
+            regionAmount.sort((a, b) => a.y - b.y);
+            this.regionData.push(regionAmount);
+        })
+
+        this.displayChart();
+    }
+
+    displayChart() {
+        if (!this.displayInterval) {
+            this.displayInterval = setInterval(() => {
+                if (this.index >= this.regionData.length) this.index = 0;
+                this.updateChart(this.index++)
+            }, 800);
         }
     }
 
-    // 3. 创建可视化图层，并添加到图层管理器中
-    var heatmap = new mapvgl.HeatmapLayer({
-        size: 600, // 单个点绘制大小
-        max: 40, // 最大阈值
-        height: 0, // 最大高度，默认为0
-        unit: 'm', // 单位，m:米，px: 像素
-        gradient: { // 对应比例渐变色
-            0.25: 'rgba(0, 0, 255, 1)',
-            0.55: 'rgba(0, 255, 0, 1)',
-            0.85: 'rgba(255, 255, 0, 1)',
-            1: 'rgba(255, 0, 0, 1)'
-        }
-    });
-    view.addLayer(heatmap);
+    updateChart(index) {
+        this.dateElement.innerHTML = this.regionData[index][0].d;
+        this.barchart.options.data[0].dataPoints = this.regionData[index];
+        this.barchart.render();
+    }
 
-    // 5. 关联图层与数据，享受震撼的可视化效果
-    heatmap.setData(data);
+    initBarChart() {
+        return new CanvasJS.Chart("regionChartsContainer", {
+            //colorSet: "regionColors",
+            title: {
+                text: "Region Increase"
+            },
+            axisX: {
+                //title: "region",
+                interval: 1,
+                gridThickness: 0,
+                tickLength: 0,
+                lineThickness: 0,
+                labelFormatter: function() {
+                    return " ";
+                }
+            },
+            axisY: {
+                gridThickness: 0,
+                maximum: 3000,
+                minimum: 0
+            },
+            animationEnabled: true,
+            data: [{
+                type: "bar",
+                indexLabel: "{label} : {y}",
+                indexLabelPlacement: "outside",
+                indexLabelOrientation: "horizontal", // "horizontal", "vertical"
+                indexLabelTextAlign: "right", //"left", "right"
+                indexLabelFontColor: "black",
+                dataPoints: []
+            }]
+        });
+    }
 }

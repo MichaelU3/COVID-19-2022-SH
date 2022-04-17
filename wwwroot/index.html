@@ -10,56 +10,58 @@
         html {
             height: 100%
         }
-
+        
         body {
             height: 100%;
             margin: 0px;
             padding: 0px
         }
-
+        
         #container,
-        #map_container{
+        #map_container {
             height: 600px;
             width: 70%;
             margin: auto;
         }
-
+        
         #total-amount {
             display: inline-block;
             margin: 15px;
         }
-
+        
         #total-amount-num,
         #date {
             display: inline-block;
         }
-
+        
         #region-select {
             margin: 0 auto;
             display: table;
         }
-
+        
         ul {
             padding: 0;
             display: inline;
         }
-
-            ul li,
-            ul li p {
-                display: inline-block;
-            }
-
+        
+        ul li,
+        ul li p {
+            display: inline-block;
+        }
+        
         .title {
             height: 35px;
             text-align: center;
             margin-top: 30px;
         }
+        
         #region-chart-action {
             display: inline-block;
             margin-left: 320px;
             position: absolute;
             margin-top: -150px;
         }
+        
         #replay-btn,
         #stop-btn {
             height: 30px;
@@ -70,7 +72,8 @@
             color: white;
             margin-top: 5px;
         }
-        #region-chart-date{
+        
+        #region-chart-date {
             width: 200px;
             background: lightgray;
             height: 50px;
@@ -82,6 +85,11 @@
             margin-top: -130px;
             display: inline-block;
             transform: translateX(500%);
+        }
+        
+        .address-row {
+            margin: 5px 0;
+            display: block;
         }
     </style>
 
@@ -95,27 +103,29 @@
 </head>
 
 <body>
-    总数： <div id="total-amount"></div>
-    日期： <div id="date"></div>
+    总数：
+    <div id="total-amount"></div>
+    日期：
+    <div id="date"></div>
     <div id="chartContainer" style="height: 370px; max-width: 920px; margin: 0px auto;"></div>
-    <div style="margin: 30px 0;">
-        <div id="chart-ele" style="height: 550px; margin: 0px auto;">
-                <div id="regionChartsContainer" style="height: 500px; max-width: 920px;margin: 0px auto;"></div>
-                <div id="region-chart-date"></div>
+    <div class="search-elems" style="text-align:center">
+        <span>小区上榜日期查询</span>
+        <div class="search-container">
+            <label>小区地址</label>
+            <input id="search-address-ipt" type="text" />
+            <div id="search-btn" style="display:inline-block">查询</div>
         </div>
-        <div id="region-chart-action">
-            <div id="replay-btn">Replay</div>
-            <div id="stop-btn">Stop</div>
+        <div class="search-result-container">
+            <div id="results" style="min-height:30px"></div>
         </div>
     </div>
 
     <div id="chartContainer-region" style="height: 500px; max-width: 920px; margin: 0px auto;"></div>
-    
-    <div id="region-select" style="display: none">
+    <div id="region-select">
         显示：
-        <ul id=" select-container">
+        <ul id="select-container">
             <li>
-                <input class="reg-chxbox" type="checkbox" name="all" checked>
+                <input class="reg-chxbox" type="checkbox" name="all">
                 <p>所有</p>
             </li>
             <li>
@@ -127,12 +137,12 @@
                 <p>闵行区</p>
             </li>
             <li>
-                <input class="reg-chxbox" type="checkbox" name="浦东新区">
+                <input class="reg-chxbox" type="checkbox" name="浦东新区" checked>
                 <p>浦东新区</p>
             </li>
             <li>
-                <input class="reg-chxbox" type="checkbox" name="黄埔区">
-                <p>黄埔区</p>
+                <input class="reg-chxbox" type="checkbox" name="黄浦区">
+                <p>黄浦区</p>
             </li>
             <li>
                 <input class="reg-chxbox" type="checkbox" name="静安区">
@@ -184,6 +194,18 @@
             </li>
         </ul>
     </div>
+
+    <div style="margin: 30px 0;">
+        <div id="chart-ele" style="height: 550px; margin: 0px auto;">
+            <div id="regionChartsContainer" style="height: 500px; max-width: 920px;margin: 0px auto;"></div>
+            <div id="region-chart-date"></div>
+        </div>
+        <div id="region-chart-action">
+            <div id="replay-btn">Replay</div>
+            <div id="stop-btn">Stop</div>
+        </div>
+    </div>
+
     <div class="title">Covid19 确诊地址</div>
     <div id="container"></div>
     <div style="height: 20px; width: 100%"></div>
@@ -194,4 +216,5 @@
         onLoad();
     </script>
 </body>
+
 </html>

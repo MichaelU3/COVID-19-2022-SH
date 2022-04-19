@@ -339,6 +339,7 @@ function coordinateConvertor(points) {
     convertor.translate(points, 1, 5, translateCallback);
 }
 
+//#region hotheat map
 class HotHeatMap {
     _mapvgl;
     constructor(mapvgl) {
@@ -351,7 +352,7 @@ class HotHeatMap {
         var x = 121.506377;
         var y = 31.245105;
         var point = new BMapGL.Point(x, y);
-        bmapgl.centerAndZoom(point, 12);
+        bmapgl.centerAndZoom(point, 13);
 
         // 2. 创建MapVGL图层管理器
         var view = new this._mapvgl.View({
@@ -402,8 +403,9 @@ class HotHeatMap {
         heatmap.setData(data);
     }
 }
+//#endregion
 
-
+//#region 每日新增
 class RegionDailyIncreaseChart {
 
     targetRegion = "浦东新区";
@@ -579,7 +581,9 @@ class RegionDailyIncreaseChart {
         this.regionIncreaseChart.render();
     }
 }
+//#endregion
 
+//#region 各区每日新增比较
 class RegionLiveComparingChart {
     static regionColors = ["#9966CC", "#FF033E", "#5D8AA8", "#3B7A57", "#FFBF00", "#FF7E00", "#A4C639", "#915C83", "#CD9575", "#89CFF0", "#E0218A", "#FE6F5E", "#0D98BA", "#CC5500", "#00BFFF", "#007BA7", "#EC3B83"];
     static regionNames = ["徐汇区", "闵行区", "浦东新区", "黄浦区", "静安区", "长宁区", "虹口区", "杨浦区", "普陀区", "宝山区", "嘉定区", "金山区", "松江区", "青浦区", "奉贤区", "崇明区"];
@@ -672,3 +676,4 @@ class RegionLiveComparingChart {
         });
     }
 }
+//#endregion

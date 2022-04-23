@@ -543,7 +543,7 @@ class RegionDailyIncreaseChart {
         var FXPercData = [];
         increaseInFXRQData.forEach((v, i) => {
             var sum = targetRegionData.find(r => r.label === v.label);
-            FXPercData.push({ x: v.x, label: v.label, y: this.calcPercent(v.y, sum.y) });
+            if (sum) FXPercData.push({ x: v.x, label: v.label, y: this.calcPercent(v.y, sum.y) });
         });
         this.increaseLineChartData.dataPoints = increaseInFXRQData;
         this.fxPercentageLineChartData.dataPoints = FXPercData;
